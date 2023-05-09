@@ -1,7 +1,7 @@
 import os
 
 IMAGES_DIR = "/images/"
-CACHE_DIR = "/cache/"
+CACHE_DIR  = "/cache/"
 OUTPUT_TYPE = None
 MAX_UPLOADS_PER_DAY = 1000
 MAX_UPLOADS_PER_HOUR = 100
@@ -11,6 +11,7 @@ NAME_STRATEGY = "randomstr"
 MAX_TMP_FILE_AGE = 5 * 60
 RESIZE_TIMEOUT = 5
 NUDE_FILTER_MAX_THRESHOLD = None
+ALLOW_FILE_TYPES = ['xlsx', 'xls', 'txt', 'zip']
 
 VALID_SIZES = []
 

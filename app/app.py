@@ -14,6 +14,7 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+# from wand.image import Image
 from wand.exceptions import MissingDelegateError
 from wand.image import Image
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -28,7 +29,6 @@ app.wsgi_app = ProxyFix(app.wsgi_app)
 
 CORS(app, origins=settings.ALLOWED_ORIGINS)
 app.config["MAX_CONTENT_LENGTH"] = settings.MAX_SIZE_MB * 1024 * 1024
-limiter = Limiter(app, key_func=get_remote_address, default_limits=[])
 
 app.use_x_sendfile = True
 
@@ -157,17 +157,9 @@ def root():
 def liveness():
     return Response(status=200)
 
+# @limiter.limit(
 
 @app.route("/", methods=["POST"])
-@limiter.limit(
-    "".join(
-        [
-            f"{settings.MAX_UPLOADS_PER_DAY}/day;",
-            f"{settings.MAX_UPLOADS_PER_HOUR}/hour;",
-            f"{settings.MAX_UPLOADS_PER_MINUTE}/minute",
-        ]
-    )
-)
 def upload_image():
     _clear_imagemagick_temp_files()
 
@@ -210,6 +202,9 @@ def upload_image():
                 shutil.move(tmp_filepath, output_path)
             else:
                 error = "Invalid Filetype"
+        elif output_type in settings.ALLOW_FILE_TYPES:
+            shutil.move(tmp_filepath, output_path)
+
         else:
             with Image(filename=tmp_filepath) as img:
                 img.strip()
@@ -234,7 +229,6 @@ def upload_image():
 
 
 @app.route("/<string:filename>")
-@limiter.exempt
 def get_image(filename):
     width = request.args.get("w", "")
     height = request.args.get("h", "")
@@ -270,4 +264,4 @@ def get_image(filename):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, threaded=True)
+    app.run(host="0.0.0.0", port=8282, threaded=True)
