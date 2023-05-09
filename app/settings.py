@@ -7,6 +7,9 @@ MAX_UPLOADS_PER_DAY = 1000
 MAX_UPLOADS_PER_HOUR = 100
 MAX_UPLOADS_PER_MINUTE = 20
 ALLOWED_ORIGINS = ["*"]
+IMAGE_TYPES = ["png", 'jpeg', 'jpg', 'gif', ]
+FILE_TYPES = ['zip', 'xlsx']
+
 NAME_STRATEGY = "randomstr"
 MAX_TMP_FILE_AGE = 5 * 60
 RESIZE_TIMEOUT = 5

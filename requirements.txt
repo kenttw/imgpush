@@ -1,10 +1,12 @@
 filetype==1.0.5
-Flask
-flask_cors
-flask_limiter
-wand
-Werkzeug
+Flask~=2.3.2
+flask_cors==3.0.9
+flask_limiter==1.0.1
+wand==0.5.7
+Werkzeug~=2.3.4
 gunicorn==19.9.0
 timeout-decorator==0.5.0
 nudenet==2.0.9
+jinja2=3.0.3
 pytest
+Pillow~=9.5.0

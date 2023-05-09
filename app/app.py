@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import time
 import glob
 import os
@@ -14,21 +15,19 @@ from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+# from wand.exceptions import MissingDelegateError
 # from wand.image import Image
-from wand.exceptions import MissingDelegateError
-from wand.image import Image
 from werkzeug.middleware.proxy_fix import ProxyFix
+from PIL import Image
 
 import settings
-import hashlib
-
-
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 
 CORS(app, origins=settings.ALLOWED_ORIGINS)
 app.config["MAX_CONTENT_LENGTH"] = settings.MAX_SIZE_MB * 1024 * 1024
+limiter = Limiter(app, key_func=get_remote_address, default_limits=[])
 
 app.use_x_sendfile = True
 
@@ -103,11 +102,16 @@ def _generate_random_filename():
                 string.ascii_lowercase + string.digits + string.ascii_uppercase, k=5
             )
         )
+
+
 def _resize_image(path, width, height):
     filename_without_extension, extension = os.path.splitext(path)
 
-    with Image(filename=path) as src:
-        img = src.clone()
+    # with Image.op(filename=path) as src:
+    #     img = src.clone()
+
+    img: Image = Image.open(path)
+
 
     current_aspect_ratio = img.width / img.height
 
@@ -120,29 +124,22 @@ def _resize_image(path, width, height):
     desired_aspect_ratio = width / height
 
     # Crop the image to fit the desired AR
-    if desired_aspect_ratio > current_aspect_ratio:
-        newheight = int(img.width / desired_aspect_ratio)
-        img.crop(
-            0,
-            int((img.height / 2) - (newheight / 2)),
-            width=img.width,
-            height=newheight,
-        )
-    else:
-        newwidth = int(img.height * desired_aspect_ratio)
-        img.crop(
-            int((img.width / 2) - (newwidth / 2)), 0, width=newwidth, height=img.height,
-        )
 
-    def resize(img, width, height):
-        img.sample(width, height)
-
-    try:
-        resize(img, width, height)
-    except timeout_decorator.TimeoutError:
-        pass
-
+    img = img.resize([width,height])
     return img
+
+    # @timeout_decorator.timeout(settings.RESIZE_TIMEOUT)
+    # def resize(img, width, height):
+    #     img.sample(width, height)
+    #
+    # try:
+    #     resize(img, width, height)
+    # except timeout_decorator.TimeoutError:
+    #     pass
+    #
+    # return img
+
+
 @app.route("/", methods=["GET"])
 def root():
     return """
@@ -157,9 +154,17 @@ def root():
 def liveness():
     return Response(status=200)
 
-# @limiter.limit(
 
 @app.route("/", methods=["POST"])
+@limiter.limit(
+    "".join(
+        [
+            f"{settings.MAX_UPLOADS_PER_DAY}/day;",
+            f"{settings.MAX_UPLOADS_PER_HOUR}/hour;",
+            f"{settings.MAX_UPLOADS_PER_MINUTE}/minute",
+        ]
+    )
+)
 def upload_image():
     _clear_imagemagick_temp_files()
 
@@ -195,29 +200,20 @@ def upload_image():
     output_path = os.path.join(settings.IMAGES_DIR, output_filename)
 
     try:
-        #if os.path.exists(output_path):
-        #    raise CollisionError
-        if output_type == "mp4":
-            if settings.ALLOW_VIDEO:
-                shutil.move(tmp_filepath, output_path)
-            else:
-                error = "Invalid Filetype"
-        elif output_type in settings.ALLOW_FILE_TYPES:
+
+        if os.path.exists(output_path):
+            pass
+        elif output_type in settings.IMAGE_TYPES:
+            with Image.open(tmp_filepath) as img:
+                img.save(output_path)
+        elif output_type in settings.FILE_TYPES:
             shutil.move(tmp_filepath, output_path)
 
         else:
-            with Image(filename=tmp_filepath) as img:
-                img.strip()
-                if output_type not in ["gif"]:
-                    with img.sequence[0] as first_frame:
-                        with Image(image=first_frame) as first_frame_img:
-                            with first_frame_img.convert(output_type) as converted:
-                                converted.save(filename=output_path)
-                else:
-                    with img.convert(output_type) as converted:
-                        converted.save(filename=output_path)
-    except MissingDelegateError:
-        error = "Invalid Filetype"
+            return jsonify(error=f"not support {output_type}"), 400
+
+    except Exception as e :
+        return jsonify(error=str(e)), 400
     finally:
         if os.path.exists(tmp_filepath):
             os.remove(tmp_filepath)
@@ -226,42 +222,47 @@ def upload_image():
         return jsonify(error=error), 400
 
     return jsonify(filename=output_filename)
+@app.route("/ii/")
+def ii():
+    return send_from_directory("/Users/kent/git/imgpush/cache/", 'Kf8CX_100x100..jpg', as_attachment=False, mimetype='image/generic')
 
 
-@app.route("/<string:filename>")
-def get_image(filename):
+@app.route("/<string:filename>", methods=['GET'])
+def get_image(filename: str):
+    file_type = filename.split(".")[-1]
     width = request.args.get("w", "")
     height = request.args.get("h", "")
 
     path = os.path.join(settings.IMAGES_DIR, filename)
 
-    filename_without_extension, extension = os.path.splitext(filename)
+    if file_type in settings.IMAGE_TYPES:
 
-    if extension not in ['gif', 'png', 'jpg', 'jpeg', 'bmp']:
-        return send_from_directory(settings.IMAGES_DIR, filename)
+        if (width or height) and (os.path.isfile(path)):
+            try:
+                width = _get_size_from_string(width)
+                height = _get_size_from_string(height)
+            except InvalidSize:
+                return (
+                    jsonify(error=f"size value must be one of {settings.VALID_SIZES}"),
+                    400,
+                )
 
-    elif (width or height) and (os.path.isfile(path)) and extension != "mp4":
-        try:
-            width = _get_size_from_string(width)
-            height = _get_size_from_string(height)
-        except InvalidSize:
-            return (
-                jsonify(error=f"size value must be one of {settings.VALID_SIZES}"),
-                400,
-            )
+            filename_without_extension, extension = os.path.splitext(filename)
+            dimensions = f"{width}x{height}"
+            resized_filename = filename_without_extension + f"_{dimensions}.{extension}"
 
-        dimensions = f"{width}x{height}"
-        resized_filename = filename_without_extension + f"_{dimensions}.{extension}"
+            resized_path = os.path.join(settings.CACHE_DIR, resized_filename)
 
-        resized_path = os.path.join(settings.CACHE_DIR, resized_filename)
+            if not os.path.isfile(resized_path) and (width or height):
+                _clear_imagemagick_temp_files()
+                resized_image = _resize_image(path, width, height)
+                resized_image.save(resized_path)
+                del resized_image
+            return send_from_directory(settings.CACHE_DIR, resized_filename, mimetype='image/generic', as_attachment=False)
 
-        if not os.path.isfile(resized_path) and (width or height):
-            _clear_imagemagick_temp_files()
-            resized_image = _resize_image(path, width, height)
-            resized_image.strip()
-            resized_image.save(filename=resized_path)
-            resized_image.close()
-        return send_from_directory(settings.CACHE_DIR, resized_filename)
+        return send_from_directory(settings.IMAGES_DIR, filename, mimetype='image/generic', as_attachment=False)
+    else:
+        return send_from_directory(settings.IMAGES_DIR, filename, as_attachment=True)
 
 
 
