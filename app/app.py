@@ -237,7 +237,7 @@ def get_image(filename):
 
     filename_without_extension, extension = os.path.splitext(filename)
 
-    if  extension is not in ['gif', 'png', 'jpg', 'jpeg', 'bmp']:
+    if extension not in ['gif', 'png', 'jpg', 'jpeg', 'bmp']:
         return send_from_directory(settings.IMAGES_DIR, filename)
 
     elif (width or height) and (os.path.isfile(path)) and extension != "mp4":
