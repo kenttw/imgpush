@@ -237,7 +237,10 @@ def get_image(filename):
 
     filename_without_extension, extension = os.path.splitext(filename)
 
-    if (width or height) and (os.path.isfile(path)) and extension != "mp4":
+    if  extension is not in['gif', 'png', 'jpg', 'jpeg', 'bmp']
+        return send_from_directory(settings.IMAGES_DIR, filename)
+
+    elif (width or height) and (os.path.isfile(path)) and extension != "mp4":
         try:
             width = _get_size_from_string(width)
             height = _get_size_from_string(height)
@@ -260,7 +263,6 @@ def get_image(filename):
             resized_image.close()
         return send_from_directory(settings.CACHE_DIR, resized_filename)
 
-    return send_from_directory(settings.IMAGES_DIR, filename)
 
 
 if __name__ == "__main__":
