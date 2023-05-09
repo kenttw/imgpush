@@ -1,4 +1,4 @@
-FROM python:3.6-slim
+FROM python:3.8-slim
 
 RUN apt-get update && \
     apt-get install -y \
@@ -7,7 +7,6 @@ RUN apt-get update && \
 
 COPY requirements.txt .
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY ImageMagick-6/policy.xml /etc/ImageMagick-6/policy.xml
 
 RUN pip install -r requirements.txt
 

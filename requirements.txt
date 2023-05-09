@@ -7,6 +7,6 @@ Werkzeug~=2.3.4
 gunicorn==19.9.0
 timeout-decorator==0.5.0
 nudenet==2.0.9
-jinja2=3.0.3
+jinja2==3.1.2
 pytest
 Pillow~=9.5.0
