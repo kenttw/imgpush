@@ -39,14 +39,14 @@ else:
     nude_classifier = None
 
 
-@app.after_request
-def after_request(resp):
-    x_sendfile = resp.headers.get("X-Sendfile")
-    if x_sendfile:
-        resp.headers["X-Accel-Redirect"] = "/nginx/" + x_sendfile
-        del resp.headers["X-Sendfile"]
-    resp.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
-    return resp
+# @app.after_request
+# def after_request(resp):
+#     x_sendfile = resp.headers.get("X-Sendfile")
+#     if x_sendfile:
+#         resp.headers["X-Accel-Redirect"] = "/nginx/" + x_sendfile
+#         del resp.headers["X-Sendfile"]
+#     resp.headers["Referrer-Policy"] = "no-referrer-when-downgrade"
+#     return resp
 
 
 class InvalidSize(Exception):
